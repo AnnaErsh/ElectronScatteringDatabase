@@ -38,6 +38,32 @@ def is_valid_data_row(row) -> bool:
     return numeric_values in [7, 8]
 
 
+def merge_special_files(file1_data, file2_data) -> list:
+    """
+    Merges two datasets from special treatment files and returns the merged data.
+    """
+    df1 = pd.DataFrame(file1_data)
+    df2 = pd.DataFrame(file2_data)
+
+    # Remove empty columns
+    df1 = df1.loc[:, (df1 != "").any(axis=0)]
+    df2 = df2.loc[:, (df2 != "").any(axis=0)]
+
+    # Merge the dataframes on the common columns
+    merge_columns = df1.columns[[0, 1, 2, 3, 4, 5, 7]]
+    merged_data = pd.merge(
+        df1, df2, on=merge_columns.tolist(), suffixes=("_df1", "_df2")
+    )
+
+    # Reorganize columns to preferred order
+    merged_data = merged_data.iloc[
+        :,
+        list(range(len(merged_data.columns) - 2))
+        + [len(merged_data.columns) - 1, len(merged_data.columns) - 2],
+    ]
+    return merged_data.values.tolist()
+
+
 def process_dat_file(file_path) -> list:
     """
     Processes the content of a .dat file and returns the data in a list format.
@@ -98,27 +124,8 @@ def process_files_in_directory(directory_path, output_csv_path) -> None:
     if len(special_treatment_data) == 2:
         file1_data = special_treatment_data[0][1]
         file2_data = special_treatment_data[1][1]
-        df1 = pd.DataFrame(file1_data)
-        df2 = pd.DataFrame(file2_data)
-        df1 = df1.loc[:, (df1 != "").any(axis=0)]
-        df2 = df2.loc[:, (df2 != "").any(axis=0)]
-        df1.to_csv("df1.csv", index=False)
-        df2.to_csv("df2.csv", index=False)
-        merge_columns = df1.columns[[0, 1, 2, 3, 4, 5, 7]]
-        merged_data = pd.merge(
-            df1, df2, on=merge_columns.tolist(), suffixes=("_df1", "_df2")
-        )
-        merged_data = merged_data.iloc[
-            :,
-            list(range(len(merged_data.columns) - 2))
-            + [len(merged_data.columns) - 1, len(merged_data.columns) - 2],
-        ]
-        merged_data.to_csv("merged_data.csv", index=False)
-        merged_data_rows = merged_data.values.tolist()
-
-        # Add these merged rows to the all_data list
-        for row in merged_data_rows:
-            all_data.append(row)
+        merged_data = merge_special_files(file1_data, file2_data)
+        all_data.extend(merged_data)
 
     # Write collected data to CSV
     column_names = [
