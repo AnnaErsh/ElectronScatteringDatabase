@@ -1,12 +1,13 @@
 """
 This module compines all the .dat files into one csv table and does all the necessary ajustments:
 - some file contain systematic uncertainty. This column is unifies across all the files
-- the fifth column of any E02-019 (Fomin:2010ei) data was in x=Q^2/2mν instead of energy loss, it was recalculated
+- the fifth column of any E02-019 (Fomin:2010ei) data was in x=Q^2/2mν
+  instead of energy loss, it was recalculated
 """
 
 import os
 import pandas as pd
-from physics_transformation import EnergyLossFromX
+from physics_transformation import energy_loss_from_x
 
 
 def is_valid_data_row(row) -> bool:
@@ -39,7 +40,7 @@ def is_valid_data_row(row) -> bool:
     return numeric_values in [7, 8]
 
 
-def merge_special_files(file1_data, file2_data) -> list:
+def merge_special_files(file1_data: list, file2_data: list) -> list:
     """
     Merges two datasets from special treatment files and returns the merged data.
     """
@@ -62,34 +63,43 @@ def merge_special_files(file1_data, file2_data) -> list:
         list(range(len(merged_data.columns) - 2))
         + [len(merged_data.columns) - 1, len(merged_data.columns) - 2],
     ]
+    # this data contains total uncertainty, we need to make space for systematic one
+    merged_data.insert(len(merged_data.columns) - 2, "empty_sys_error", "")
+    merged_data["initial_file"] = "E12-14-012.dat"
     return merged_data.values.tolist()
 
 
-def process_dat_file(file_path) -> list:
+def process_dat_file(file_path: str) -> list:
     """
     Processes the content of a .dat file and returns the data in a list format.
     The first line might contain column names if the file has headers.
+    Args:
+    file_path (str): path and name of the .dat file to be processed
     """
     data = []
-    with open(file_path, "r") as file:
+    with open(file_path, "r", encoding="utf-8") as file:
         lines = file.readlines()
 
         # Process the rest of the lines
         for line in lines:
             row = line.strip().split()  # Split by spaces or tabs
             if row and is_valid_data_row(row):  # Only add non-empty rows
+                row.insert(-1, "")
                 if len(row) == 8:
-                    row.insert(
-                        -1, ""
-                    )  # Insert empty string before the last column if there is no sys unsrt
+                    # Insert empty string before the last column if there is no sys and total unsrt
+                    row.insert(-1, "")
                 data.append(row)
 
     return data
 
 
-def process_files_in_directory(directory_path, output_csv_path) -> None:
+def process_files_in_directory(directory_path: str, output_csv_path: str) -> None:
     """
-    Iterates over all .dat files in the given directory, processes them, and writes all data to a CSV.
+    Iterates over all .dat files in the given directory,
+    processes them, and writes all data to a CSV.
+    Args:
+    directory_path (str): directory contatining all the .dat files
+    output_csv_path (str): path and name to the final output csv table
     """
     all_data = []
     special_tratment_files = [
@@ -137,6 +147,7 @@ def process_files_in_directory(directory_path, output_csv_path) -> None:
         "energy loss (GeV)",
         "sigma (nb/sr/GeV)",
         "error (random)",
+        "error (systematic)",
         "error (total)",
         "citation",
         "initial file name",
@@ -148,9 +159,12 @@ def process_files_in_directory(directory_path, output_csv_path) -> None:
     # Set the new column names for all_data
     all_data_df.columns = column_names
 
+    # Sort by initial conditions
+    all_data_df = all_data_df.sort_values(by=all_data_df.columns[:4].tolist())
+
     # Write collected data to CSV
     all_data_df.to_csv(output_csv_path, index=False)
-    EnergyLossFromX(all_data_df)
+    energy_loss_from_x(all_data_df)
     print(f"Data has been written to {output_csv_path}")
 
 
