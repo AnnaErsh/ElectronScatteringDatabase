@@ -2,9 +2,9 @@
 This module downloads all the datafiles from the Quasielastic Electron Nucleus Scattering Archive
 """
 
-import requests
 import os
 import time
+import requests
 
 folders = [
     "E12-14-012_totUncertainties",
@@ -30,18 +30,18 @@ folders = [
     "nms",
     "nmt",
 ]
-webpage = "http://discovery.phys.virginia.edu/research/groups/qes-archive/data/"
-output_folder = "scrapped_data"
+WEBPAGE = "http://discovery.phys.virginia.edu/research/groups/qes-archive/data/"
+OUTPUT_FOLDER = "scrapped_data"
 
 for folder in folders:
-    datatype = ".dat" if folder != "E08-014" else ".zip"
+    file_extension = ".dat" if folder != "E08-014" else ".zip"
     try:
-        dat_response = requests.get(webpage + folder + datatype, timeout=10)
+        dat_response = requests.get(WEBPAGE + folder + file_extension, timeout=10)
         if dat_response.status_code == 200:
-            filename = f"{folder + datatype}"
-            filepath = os.path.join(output_folder, filename)
+            filename = f"{folder + file_extension}"
+            filepath = os.path.join(OUTPUT_FOLDER, filename)
             with open(filepath, "wb") as f:
-                if datatype == ".dat":
+                if file_extension == ".dat":
                     f.write(dat_response.content)
                     print(f"Downloaded: {filename}")
                 else:
@@ -49,8 +49,8 @@ for folder in folders:
                         f.write(chunk)
                         print(f"Downloaded contents of {filepath} to {folder}")
         else:
-            print(f"Failed to download {webpage + folder + datatype}")
+            print(f"Failed to download {WEBPAGE + folder + file_extension}")
     except requests.exceptions.RequestException as e:
-        print(f"Error downloading {webpage + folder}: {e}")
+        print(f"Error downloading {WEBPAGE + folder}: {e}")
 
     time.sleep(2)
