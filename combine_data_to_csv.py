@@ -6,6 +6,7 @@ This module compines all the .dat files into one csv table and does all the nece
 
 import os
 import pandas as pd
+from physics_transformation import EnergyLossFromX
 
 
 def is_valid_data_row(row) -> bool:
@@ -149,6 +150,7 @@ def process_files_in_directory(directory_path, output_csv_path) -> None:
 
     # Write collected data to CSV
     all_data_df.to_csv(output_csv_path, index=False)
+    EnergyLossFromX(all_data_df)
     print(f"Data has been written to {output_csv_path}")
 
 
