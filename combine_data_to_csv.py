@@ -5,7 +5,6 @@ This module compines all the .dat files into one csv table and does all the nece
 """
 
 import os
-import csv
 import pandas as pd
 
 
@@ -61,78 +60,89 @@ def process_dat_file(file_path) -> list:
     return data
 
 
-def write_to_csv(output_csv_path, all_data) -> None:
+def process_files_in_directory(directory_path, output_csv_path) -> None:
     """
-    Writes the collected data to a CSV file.
+    Iterates over all .dat files in the given directory, processes them, and writes all data to a CSV.
     """
-    with open(output_csv_path, "w", newline="") as csvfile:
-        writer = csv.writer(csvfile)
-        for row in all_data:
-            writer.writerow(row)
-
-
-def process_files_in_directory(directory_path, output_csv_path):
-    """
-    Iterates over all .dat files in the given directory and subdirectories, processes them, and writes all data to a CSV.
-    Adds the filename as an additional column to each row. Special handling for two specific files.
-    """
-    all_data = []  # List to store all the DataFrames
-
-    special_files = [
+    all_data = []
+    special_tratment_files = [
         "E12-14-012_statUncertainties.dat",
         "E12-14-012_totUncertainties.dat",
-    ]  # Replace with actual filenames of the two special files
-    processed_special_files = set()  # Set to track processed special files
-    special_data = []  # Will store data from special files for later merging
-
+    ]
+    special_treatment_data = []
     # Use os.walk to iterate through all subdirectories and files
-    for dirpath, dirnames, filenames in os.walk(directory_path):
+    for dirpath, _, filenames in os.walk(directory_path):
+
         for filename in filenames:
             if filename.endswith(".dat"):  # Process only .dat files
-
-                file_path = os.path.join(dirpath, filename)
-
-                # Read the file into a DataFrame
-                df = pd.read_csv(file_path, delim_whitespace=True, header=None)
-
-                # Add the filename as the last column
-                df["filename"] = filename
-
-                # If the file is one of the special files and hasn't been processed yet
                 if (
-                    filename in special_files
-                    and filename not in processed_special_files
-                ):
+                    filename in special_tratment_files
+                ):  # If it's one of the special files
                     print(f"Processing special file: {filename}")
-                    special_data.append((filename, df))  # Store the special data
-                    processed_special_files.add(filename)
+                    file_path = os.path.join(dirpath, filename)
+                    file_data = process_dat_file(file_path)
+                    special_treatment_data.append((filename, file_data))
                 else:
-                    # Otherwise, add it to the all_data list
-                    print(f"Processing regular file: {filename}")
-                    all_data.append(df)
+                    file_path = os.path.join(dirpath, filename)
+                    print(f"Processing {filename}...")
+                    file_data = process_dat_file(file_path)
 
-    # After processing all files, merge the special files if both are processed
-    if len(processed_special_files) == 2:  # If we have both special files
-        # Extract data for merging (i.e., columns from special files)
-        file1_data = special_data[0][1]
-        file2_data = special_data[1][1]
+                    # add the initial filename as the last row for debugging reasons
+                    for row in file_data:
+                        row.append(filename)  # Append the filename as the last column
 
-        # Merge the second-to-last columns from both files (file1 and file2)
-        min_rows = min(len(file1_data), len(file2_data))  # To avoid index mismatch
-        file1_data.insert(
-            len(file1_data.columns) - 1,
-            "second_last_column_file2",
-            file2_data.iloc[:min_rows, -2].values,
+                    all_data.extend(file_data)  # Add data to the main list
+
+    # 2 files need to be merged before being added to the final dataset,
+    # they are the same but contain different sets of uncertainties
+    if len(special_treatment_data) == 2:
+        file1_data = special_treatment_data[0][1]
+        file2_data = special_treatment_data[1][1]
+        df1 = pd.DataFrame(file1_data)
+        df2 = pd.DataFrame(file2_data)
+        df1 = df1.loc[:, (df1 != "").any(axis=0)]
+        df2 = df2.loc[:, (df2 != "").any(axis=0)]
+        df1.to_csv("df1.csv", index=False)
+        df2.to_csv("df2.csv", index=False)
+        merge_columns = df1.columns[[0, 1, 2, 3, 4, 5, 7]]
+        merged_data = pd.merge(
+            df1, df2, on=merge_columns.tolist(), suffixes=("_df1", "_df2")
         )
+        merged_data = merged_data.iloc[
+            :,
+            list(range(len(merged_data.columns) - 2))
+            + [len(merged_data.columns) - 1, len(merged_data.columns) - 2],
+        ]
+        merged_data.to_csv("merged_data.csv", index=False)
+        merged_data_rows = merged_data.values.tolist()
 
-        # Append the merged data to the final result
-        all_data.append(file1_data)  # Append the merged data for special files
+        # Add these merged rows to the all_data list
+        for row in merged_data_rows:
+            all_data.append(row)
 
-    # Concatenate all DataFrames into one
-    final_data = pd.concat(all_data, ignore_index=True)
+    # Write collected data to CSV
+    column_names = [
+        "Z",
+        "A",
+        "E (GeV)",
+        "Theta (degrees)",
+        "energy loss (GeV)",
+        "sigma (nb/sr/GeV)",
+        "error (random)",
+        "error (total)",
+        "citation",
+        "initial file name",
+    ]
 
-    # Write the final data to a CSV file
-    final_data.to_csv(output_csv_path, index=False)
+    # Convert all_data into a DataFrame for easy column renaming
+    all_data_df = pd.DataFrame(all_data)
+
+    # Set the new column names for all_data
+    all_data_df.columns = column_names
+
+    # Write collected data to CSV
+    all_data_df.to_csv(output_csv_path, index=False)
+    print(f"Data has been written to {output_csv_path}")
 
 
 process_files_in_directory("scrapped_data", "merged_table.csv")
