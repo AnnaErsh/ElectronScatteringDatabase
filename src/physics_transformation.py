@@ -12,7 +12,9 @@ M_E = 0.511e-3  # Mass of electron in GeV (0.511 MeV/c^2)
 def calculateQ2(energy: float, theta: float) -> float:
     """
     Calculate the four-momentum transfer squared (Q^2) from energy (E) and scattering angle (Theta).
-    Theta is in degrees.
+    Args:
+    energy (float): electron energy in GeV
+    theta (float): scattering angle in degrees
     """
 
     theta_rad = np.radians(theta)  # Convert Theta from degrees to radians
@@ -22,7 +24,9 @@ def calculateQ2(energy: float, theta: float) -> float:
 def energy_loss_from_x(data: pd.DataFrame) -> None:
     """
     the fifth column of any E02-019 (Fomin:2010ei) data was in x=Q^2/2mν instead of energy loss,
-    this function recalculates it
+    this function recalculates it and modifies data inplace
+    Args:
+    data (pd.DataFrame): dataset where x needs to be recalculated to the energy loss
     """
     # Iterate over the rows of the DataFrame
     for index, row in data.iterrows():

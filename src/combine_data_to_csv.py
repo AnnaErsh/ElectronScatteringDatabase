@@ -10,11 +10,13 @@ import pandas as pd
 from physics_transformation import energy_loss_from_x
 
 
-def is_valid_data_row(row) -> bool:
+def is_valid_data_row(row: list[str]) -> bool:
     """
     Checks if the row follows the expected data format:
     - 7 or 8 numeric columns
     - The last value should be a string (e.g., filename or other strings)
+    Args:
+    row (list[str]): 1 row of the initial .dat file
     """
     # Check if row length is 8 or 9
     if len(row) not in [8, 9]:
@@ -43,6 +45,9 @@ def is_valid_data_row(row) -> bool:
 def merge_special_files(file1_data: list, file2_data: list) -> list:
     """
     Merges two datasets from special treatment files and returns the merged data.
+    Args:
+    file1_data (list): E12-14-012_statUncertainties file
+    file2_data (list): E12-14-012_totUncertainties file
     """
     df1 = pd.DataFrame(file1_data)
     df2 = pd.DataFrame(file2_data)
@@ -83,10 +88,13 @@ def process_dat_file(file_path: str) -> list:
         # Process the rest of the lines
         for line in lines:
             row = line.strip().split()  # Split by spaces or tabs
+            # print(len(row))
             if row and is_valid_data_row(row):  # Only add non-empty rows
-                row.insert(-1, "")
+                if len(row) == 9:
+                    row.insert(-1, "")
                 if len(row) == 8:
                     # Insert empty string before the last column if there is no sys and total unsrt
+                    row.insert(-1, "")
                     row.insert(-1, "")
                 data.append(row)
 
@@ -101,6 +109,10 @@ def process_files_in_directory(directory_path: str, output_csv_path: str) -> Non
     directory_path (str): directory contatining all the .dat files
     output_csv_path (str): path and name to the final output csv table
     """
+    if not os.path.isdir(directory_path):
+        print(f"Error: Directory '{directory_path}' does not exist.")
+        return
+
     all_data = []
     special_tratment_files = [
         "E12-14-012_statUncertainties.dat",
@@ -156,6 +168,9 @@ def process_files_in_directory(directory_path: str, output_csv_path: str) -> Non
     # Convert all_data into a DataFrame for easy column renaming
     all_data_df = pd.DataFrame(all_data)
 
+    print("DataFrame Shape:", all_data_df.shape)
+    print("DataFrame Head:\n", all_data_df.head())
+
     # Set the new column names for all_data
     all_data_df.columns = column_names
 
@@ -168,4 +183,4 @@ def process_files_in_directory(directory_path: str, output_csv_path: str) -> Non
     print(f"Data has been written to {output_csv_path}")
 
 
-process_files_in_directory("scrapped_data", "merged_table.csv")
+process_files_in_directory("../scrapped_data", "../merged_table.csv")
